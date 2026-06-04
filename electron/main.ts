@@ -733,7 +733,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
   const provider = settings.apiProvider ?? 'openai';
   const baseURL = getOpenAICompatibleBaseUrl(provider);
   const effectiveSystemPrompt = settings.answerLanguage === 'zh'
-    ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+    ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
     : settings.systemPrompt;
 
   // ── 组会模式：全文注入，严格基于文档回答 ────────────────────────────
@@ -1093,7 +1093,7 @@ async function startAllInOneListener(): Promise<void> {
 
   const responseStyle = settings.responseStyle ?? 'concise';
   const basePrompt = settings.answerLanguage === 'zh'
-    ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+    ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
     : settings.systemPrompt;
   // 与普通 LLM 调用保持一致：统一先用用户/个性化的 systemPrompt 作为 base，
   // 再根据模式附加不同的「强制输出格式」约束，避免极简模式指令过弱导致 JSON 不稳定。
@@ -1243,7 +1243,7 @@ async function answerFromScreenshot(): Promise<{ ok: boolean; error?: string }> 
     const meetingMode = settings.meetingMode ?? false;
     const meetCtx = meetingMode ? buildMeetingAnswerContext() : null;
     const imgSystemPrompt = settings.answerLanguage === 'zh'
-      ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+      ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
       : settings.systemPrompt;
     const sharedArgs = [
       apiKey,
