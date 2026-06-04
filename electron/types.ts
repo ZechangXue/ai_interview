@@ -113,6 +113,8 @@ export interface Settings {
   autoDismissCardOnNewQuestion: boolean;
   /** 组会/项目介绍模式：上传项目文档，根据文档内容实时答疑 */
   meetingMode?: boolean;
+  /** 答案语言：'en' 英文（默认）/ 'zh' 中文 */
+  answerLanguage?: 'en' | 'zh';
 }
 
 // 流式 LLM 更新事件（兼容两种模式的所有字段）

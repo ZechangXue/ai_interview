@@ -732,6 +732,9 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
 
   const provider = settings.apiProvider ?? 'openai';
   const baseURL = getOpenAICompatibleBaseUrl(provider);
+  const effectiveSystemPrompt = settings.answerLanguage === 'zh'
+    ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+    : settings.systemPrompt;
 
   // ── 组会模式：全文注入，严格基于文档回答 ────────────────────────────
   if (settings.meetingMode) {
@@ -797,10 +800,10 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
         const qh = getQuestionHistory();
         let result: import('./types').ReadableAssistJSON | null = null;
         if (provider === 'google') {
-          result = await generateAssistGemini(apiKey ?? '', settings.model, settings.systemPrompt, cs, qh, combined, 'readable') as import('./types').ReadableAssistJSON;
+          result = await generateAssistGemini(apiKey ?? '', settings.model, effectiveSystemPrompt, cs, qh, combined, 'readable') as import('./types').ReadableAssistJSON;
         } else if (provider === 'ollama') {
           const url = settings.ollamaBaseUrl?.trim() || 'http://localhost:11434';
-          result = await generateAssistOllama(url, settings.model, settings.systemPrompt, cs, qh, combined, 'readable') as import('./types').ReadableAssistJSON;
+          result = await generateAssistOllama(url, settings.model, effectiveSystemPrompt, cs, qh, combined, 'readable') as import('./types').ReadableAssistJSON;
         }
         if (result) emitMeetingChunk({ partial: result as Partial<AssistJSON & { expanded_answer_en?: string }>, done: true });
       }
@@ -867,7 +870,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
         const result = await generateAssistOllama(
           url,
           settings.model,
-              settings.systemPrompt,
+          effectiveSystemPrompt,
           contextSummary,
           questionsHistory,
           combined,
@@ -878,7 +881,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
         const result = await generateAssistGemini(
           apiKey ?? '',
           settings.model,
-              settings.systemPrompt,
+          effectiveSystemPrompt,
           contextSummary,
           questionsHistory,
           combined,
@@ -889,7 +892,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
         await generateAssistStream(
           apiKey ?? '',
           settings.model,
-          settings.systemPrompt,
+          effectiveSystemPrompt,
           contextSummary,
           questionsHistory,
           combined,
@@ -939,7 +942,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
       assist = await generateAssistOllama(
         url,
         settings.model,
-        settings.systemPrompt,
+        effectiveSystemPrompt,
         contextSummary,
         questionsHistory,
         combined,
@@ -949,7 +952,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
       assist = await generateAssistGemini(
         apiKey ?? '',
         settings.model,
-        settings.systemPrompt,
+        effectiveSystemPrompt,
         contextSummary,
         questionsHistory,
         combined,
@@ -959,7 +962,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
       assist = await generateAssist(
         apiKey ?? '',
         settings.model,
-        settings.systemPrompt,
+        effectiveSystemPrompt,
         contextSummary,
         questionsHistory,
         combined,
@@ -1089,7 +1092,9 @@ async function startAllInOneListener(): Promise<void> {
   const structured = getStructuredContext();
 
   const responseStyle = settings.responseStyle ?? 'concise';
-  const basePrompt = settings.systemPrompt;
+  const basePrompt = settings.answerLanguage === 'zh'
+    ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+    : settings.systemPrompt;
   // 与普通 LLM 调用保持一致：统一先用用户/个性化的 systemPrompt 作为 base，
   // 再根据模式附加不同的「强制输出格式」约束，避免极简模式指令过弱导致 JSON 不稳定。
   const effectivePrompt =
@@ -1237,10 +1242,13 @@ async function answerFromScreenshot(): Promise<{ ok: boolean; error?: string }> 
 
     const meetingMode = settings.meetingMode ?? false;
     const meetCtx = meetingMode ? buildMeetingAnswerContext() : null;
+    const imgSystemPrompt = settings.answerLanguage === 'zh'
+      ? settings.systemPrompt + '\n[LANGUAGE]\nAnswer in Chinese (Simplified).'
+      : settings.systemPrompt;
     const sharedArgs = [
       apiKey,
       settings.model,
-      settings.systemPrompt,
+      imgSystemPrompt,
       getContextSummary(),
       getQuestionHistory(),
       imageBase64,

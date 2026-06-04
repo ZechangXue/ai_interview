@@ -137,6 +137,28 @@ const SettingsPanel: React.FC<Props> = ({
 
       <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <section>
+          <div style={{ marginBottom: 6, fontWeight: 600 }}>答案语言 / Answer Language</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['en', 'zh'] as const).map(lang => (
+              <button
+                key={lang}
+                className="btn"
+                style={{
+                  flex: 1,
+                  background: (settings.answerLanguage ?? 'en') === lang
+                    ? 'rgba(99,102,241,0.85)'
+                    : 'rgba(255,255,255,0.08)',
+                  fontWeight: (settings.answerLanguage ?? 'en') === lang ? 700 : 400
+                }}
+                onClick={() => update({ answerLanguage: lang })}
+              >
+                {lang === 'en' ? '🇬🇧 English' : '🇨🇳 中文'}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
           <div style={{ marginBottom: 6, fontWeight: 600 }}>API 服务商</div>
           <select
             className="input"
