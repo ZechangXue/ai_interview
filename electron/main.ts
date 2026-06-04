@@ -1358,6 +1358,15 @@ function registerIpcHandlers() {
       }
     }
 
+    // answerLanguage 变更时，重建 AllInOne，让新 session 带上新的语言指令。
+    if ('answerLanguage' in partial && partial.answerLanguage !== before.answerLanguage && updated.useRealtimeAllInOne) {
+      realtimeAllInOne?.stop();
+      realtimeAllInOne = null;
+      if (updated.listening) {
+        startAllInOneListener().catch(console.error);
+      }
+    }
+
     // responseStyle 变更时，若 allInOne 正在运行需用新设置重建实例，
     // 否则旧实例仍持有旧的 systemPrompt 和 responseStyle，导致输出格式与 UI 显示不匹配。
     if ('responseStyle' in partial && partial.responseStyle !== before.responseStyle && updated.useRealtimeAllInOne) {
