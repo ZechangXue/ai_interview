@@ -659,6 +659,61 @@ export async function generateReadableAnswerWithContent(
   return callModelReadable(client, model, { role: 'system', content: systemContent });
 }
 
+export async function translateAssistAnswersToChinese(
+  apiKey: string,
+  model: string,
+  assist: Partial<AssistJSON & ReadableAssistJSON>,
+  baseURL?: string
+): Promise<Partial<AssistJSON & ReadableAssistJSON>> {
+  const concise = assist.concise_answer_en?.trim();
+  const expanded = assist.expanded_answer_en?.trim();
+  if (!concise && !expanded) return assist;
+
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const response = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    max_tokens: 1200,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: `Translate the answer fields into Simplified Chinese.
+Preserve the exact meaning, specificity, tone, and structure of the original answer.
+Do not add new facts, remove details, shorten, expand, or rewrite the answer into a different response.
+Keep field names unchanged. Keep code, API names, library names, model names, and common technical terms in English when natural.
+Return JSON only with any of these fields that are present: question_zh, concise_answer_en, expanded_answer_en.`
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          question_zh: assist.question_zh ?? '',
+          ...(concise ? { concise_answer_en: concise } : {}),
+          ...(expanded ? { expanded_answer_en: expanded } : {})
+        })
+      }
+    ]
+  });
+
+  try {
+    const obj = JSON.parse(response.choices[0]?.message?.content ?? '{}') as any;
+    return {
+      ...assist,
+      ...(typeof obj.question_zh === 'string' && obj.question_zh.trim()
+        ? { question_zh: obj.question_zh.trim() }
+        : {}),
+      ...(typeof obj.concise_answer_en === 'string' && obj.concise_answer_en.trim()
+        ? { concise_answer_en: obj.concise_answer_en.trim() }
+        : {}),
+      ...(typeof obj.expanded_answer_en === 'string' && obj.expanded_answer_en.trim()
+        ? { expanded_answer_en: obj.expanded_answer_en.trim() }
+        : {})
+    };
+  } catch {
+    return assist;
+  }
+}
+
 async function callModelWithRetry(
   client: OpenAI,
   model: string,

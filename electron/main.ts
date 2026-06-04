@@ -20,6 +20,7 @@ import {
   testConnectionGemini,
   buildConciseSystemPrompt,
   generateReadableAnswerWithContent,
+  translateAssistAnswersToChinese,
   generateMeetingAssistStream,
   generateAssistFromImage,
   generateAssistGeminiFromImage
@@ -732,9 +733,7 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
 
   const provider = settings.apiProvider ?? 'openai';
   const baseURL = getOpenAICompatibleBaseUrl(provider);
-  const effectiveSystemPrompt = settings.answerLanguage === 'zh'
-    ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
-    : settings.systemPrompt;
+  const effectiveSystemPrompt = settings.systemPrompt;
 
   // ── 组会模式：全文注入，严格基于文档回答 ────────────────────────────
   if (settings.meetingMode) {
@@ -916,6 +915,15 @@ async function runAssistForCombinedQuestion(combined: string, speechStoppedAt: n
               cardShown = true;
               console.log(`[⏱ T5-stream] 卡片首次弹出 +${Date.now() - t4}ms`);
             }
+            if (chunk.done && settings.answerLanguage === 'zh') {
+              void (async () => {
+                accumulated = await maybeTranslateFinalAssistToChinese(accumulated);
+                mainWindow?.webContents.send('assist:streamChunk', { partial: { ...accumulated }, done: true });
+                persistAnswerSummary(accumulated);
+                console.log(`[鈴?T6] 娴佸紡瀹屾垚 +${Date.now() - t4}ms`);
+              })().catch((e) => console.error('[AnswerLanguage] final stream translate failed', e));
+              return;
+            }
             mainWindow.webContents.send('assist:streamChunk', { partial: { ...accumulated }, done: chunk.done });
             if (chunk.done) {
               persistAnswerSummary(accumulated);
@@ -1092,9 +1100,7 @@ async function startAllInOneListener(): Promise<void> {
   const structured = getStructuredContext();
 
   const responseStyle = settings.responseStyle ?? 'concise';
-  const basePrompt = settings.answerLanguage === 'zh'
-    ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
-    : settings.systemPrompt;
+  const basePrompt = settings.systemPrompt;
   // 与普通 LLM 调用保持一致：统一先用用户/个性化的 systemPrompt 作为 base，
   // 再根据模式附加不同的「强制输出格式」约束，避免极简模式指令过弱导致 JSON 不稳定。
   const effectivePrompt =
@@ -1122,7 +1128,7 @@ async function startAllInOneListener(): Promise<void> {
   });
   attachLevelForwarder(realtimeAllInOne);
 
-  await realtimeAllInOne.start((chunk) => {
+  await realtimeAllInOne.start(async (chunk) => {
     if (!mainWindow) return;
 
     const interviewerTranscript = (chunk.interviewerTranscript ?? '').trim();
@@ -1150,6 +1156,15 @@ async function startAllInOneListener(): Promise<void> {
     }
 
     // done 时先写入摘要/导出，再发 chunk，避免渲染进程抢先预取 getReadableAnswer 时摘要尚未落盘
+    if (payload.done && settings.answerLanguage === 'zh') {
+      payload = {
+        ...payload,
+        partial: await maybeTranslateFinalAssistToChinese(
+          payload.partial as Partial<AssistJSON & { expanded_answer_en?: string }>
+        )
+      };
+    }
+
     if (payload.done) {
       let deferCleanupForAsrExport = false;
 
@@ -1209,6 +1224,30 @@ async function startAllInOneListener(): Promise<void> {
   });
 }
 
+async function maybeTranslateFinalAssistToChinese<T extends Partial<AssistJSON & { expanded_answer_en?: string }>>(
+  assist: T
+): Promise<T> {
+  const settings = getSettings();
+  if (settings.answerLanguage !== 'zh') return assist;
+  if (!assist.concise_answer_en?.trim() && !assist.expanded_answer_en?.trim()) return assist;
+  const provider = settings.apiProvider ?? 'openai';
+  if (!isOpenAICompatible(provider)) return assist;
+  const apiKey = await getApiKey(provider);
+  if (!apiKey) return assist;
+  try {
+    const translated = await translateAssistAnswersToChinese(
+      apiKey,
+      settings.model,
+      assist,
+      getOpenAICompatibleBaseUrl(provider)
+    );
+    return { ...assist, ...translated } as T;
+  } catch (e) {
+    console.warn('[AnswerLanguage] translate final assist failed', e);
+    return assist;
+  }
+}
+
 function stopAllInOneListener(audioOnly = false): void {
   if (audioOnly) {
     realtimeAllInOne?.stopAudio();
@@ -1242,9 +1281,7 @@ async function answerFromScreenshot(): Promise<{ ok: boolean; error?: string }> 
 
     const meetingMode = settings.meetingMode ?? false;
     const meetCtx = meetingMode ? buildMeetingAnswerContext() : null;
-    const imgSystemPrompt = settings.answerLanguage === 'zh'
-      ? settings.systemPrompt + '\n[LANGUAGE OVERRIDE]\nWrite ALL answer content in Chinese (Simplified). This applies to the concise_answer_en and expanded_answer_en fields — ignore the "_en" suffix and write Chinese text in those fields.'
-      : settings.systemPrompt;
+    const imgSystemPrompt = settings.systemPrompt;
     const sharedArgs = [
       apiKey,
       settings.model,
@@ -1272,7 +1309,7 @@ async function answerFromScreenshot(): Promise<{ ok: boolean; error?: string }> 
         : null;
 
     if (!result) return { ok: false, error: 'Screenshot QA currently requires an OpenAI-compatible or Gemini vision model.' };
-    const assist = result as AssistJSON & { expanded_answer_en?: string };
+    const assist = await maybeTranslateFinalAssistToChinese(result as AssistJSON & { expanded_answer_en?: string });
 
     if (assist.question_zh && isNoiseOrUnrecognizedQuestionZh(assist.question_zh)) return { ok: true };
     persistScreenshotAssist(assist, '[screenshot selection]');
