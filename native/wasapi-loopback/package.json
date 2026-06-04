@@ -1,0 +1,13 @@
+{
+  "name": "wasapi-loopback",
+  "version": "1.0.0",
+  "description": "Windows WASAPI loopback capture native addon",
+  "main": "index.js",
+  "scripts": {
+    "install": "node-gyp configure build"
+  },
+  "os": ["win32"],
+  "optionalDependencies": {
+    "node-addon-api": "^8.0.0"
+  }
+}

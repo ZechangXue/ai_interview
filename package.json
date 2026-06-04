@@ -1,0 +1,123 @@
+{
+  "name": "interview-teleprompter-ai",
+  "version": "1.6.0",
+  "description": "Interview Teleprompter AI - Windows Desktop App",
+  "main": ".electron-build/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"npm:dev:electron\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dev:electron": "wait-on tcp:5173 && npm run build:electron && cross-env NODE_ENV=development electron .electron-build/main.js",
+    "build": "vite build && npm run build:electron",
+    "start": "cross-env NODE_ENV=production electron .electron-build/main.js",
+    "build:wasapi": "node-gyp configure build --directory=native/wasapi-loopback",
+    "rebuild-native": "electron-rebuild -f -w naudiodon,segfault-handler,wasapi-loopback",
+    "dist": "npm run build && npm run rebuild-native && electron-builder",
+    "dist:win": "npm run build && npm run rebuild-native && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "rebuild-native:mac": "electron-rebuild -f -w naudiodon,keytar",
+    "dist:mac:full": "npm run build && npm run rebuild-native:mac && electron-builder --mac --config electron-builder.mac.yml",
+    "diagnose:openai-key": "node scripts/diagnose-openai-key.mjs",
+    "lint": "echo \"no lint configured\""
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "keytar": "^7.9.0",
+    "wasapi-loopback": "file:./native/wasapi-loopback",
+    "mammoth": "^1.6.0",
+    "naudiodon": "^2.3.6",
+    "openai": "^4.70.0",
+    "pdf-parse": "^1.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^9.0.1",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@types/electron": "^1.6.10",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^9.0.0",
+    "@vitejs/plugin-react-swc": "^3.7.1",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "node-addon-api": "^8.6.0",
+    "node-gyp": "^10.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "wait-on": "^8.0.2"
+  },
+  "build": {
+    "appId": "com.interview-teleprompter.app",
+    "productName": "过了么AI",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "icon": "assets/icon.png",
+    "files": [
+      ".electron-build/**/*",
+      "dist/**/*",
+      "demoAnswerLibrary.json",
+      "electron/preload.js",
+      "node_modules/**/*",
+      "package.json",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.ts",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/naudiodon/**/*",
+      "node_modules/wasapi-loopback/**/*",
+      "node_modules/keytar/**/*",
+      "node_modules/@mapbox/**/*",
+      "node_modules/node-pre-gyp/**/*",
+      "node_modules/segfault-handler/**/*"
+    ],
+    "win": {
+      "artifactName": "${productName}.Setup.${version}.${ext}",
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "过了么AI",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "title": "Interview Teleprompter AI",
+      "icon": "assets/icon.icns"
+    }
+  }
+}

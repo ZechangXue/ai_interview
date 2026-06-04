@@ -1,0 +1,50 @@
+## Mac 专属 electron-builder 配置
+## 用法：electron-builder --mac --config electron-builder.mac.yml
+## 注意：必须在 Mac 机器（或 Mac CI）上执行，不能从 Windows 交叉编译
+
+appId: com.interview-teleprompter.app
+productName: 过了么AI
+copyright: Copyright © 2025
+
+directories:
+  output: release-mac          # 输出目录与 Windows 的 release/ 分开，互不干扰
+  buildResources: assets
+
+# electron-builder 在 Mac 上会自动把 icon.png 转成 .icns
+icon: assets/icon.png
+
+files:
+  - .electron-build/**/*
+  - dist/**/*
+  - demoAnswerLibrary.json
+  - electron/preload.js
+  - node_modules/**/*
+  - package.json
+  - "!node_modules/**/*.md"
+  - "!node_modules/**/*.ts"
+  - "!**/*.map"
+  # 排除 Windows 专属原生模块源码（打包时不需要）
+  - "!native/wasapi-loopback/**/*"
+
+# Mac 上只需解包这几个原生模块，不含 wasapi-loopback / segfault-handler
+asarUnpack:
+  - node_modules/naudiodon/**/*
+  - node_modules/keytar/**/*
+  - node_modules/@mapbox/**/*
+  - node_modules/node-pre-gyp/**/*
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64        # Intel Mac
+        - arm64      # Apple Silicon (M 系列)
+  icon: assets/icon.png
+  category: public.app-category.productivity
+  # 如需公证（Notarization）上架，取消注释并填入 Apple ID：
+  # notarize:
+  #   teamId: "YOUR_TEAM_ID"
+
+dmg:
+  title: 过了么AI
+  icon: assets/icon.png

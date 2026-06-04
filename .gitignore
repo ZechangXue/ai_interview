@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.electron-build/
+release/
+native/wasapi-loopback/build/
+native/wasapi-loopback/bin/
+native/wasapi-loopback/prebuilds/
+native/node_modules/
+
+# Electron / Vite cache
+.cache/
+.tmp/
+
+# Logs
+*.log
+crash.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+
+# IDE
+.vscode/
+*.suo
+*.user
+
+# Demo library copy
+demoAnswerLibrary copy.json
