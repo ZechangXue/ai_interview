@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>过了么AI - 下载与演示</title>
+  <meta name="description" content="过了么AI：实时面试提词与可读答案辅助工具，下载、功能介绍与演示。" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a32;
+      --text: #e8edff;
+      --muted: #a7b3d9;
+      --brand: #4f8cff;
+      --line: #2b3763;
+      --ok: #2ecc71;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 20% -10%, #1d2b56 0%, var(--bg) 55%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    #bg-particles {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .container { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 24px; }
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 28px;
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    }
+    h1 { margin: 0 0 6px; font-size: 36px; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 16px; }
+    .actions { margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 11px 16px;
+      border-radius: 10px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-weight: 600;
+    }
+    .btn.primary { background: var(--brand); color: #fff; }
+    .btn.secondary { background: transparent; color: var(--text); border-color: var(--line); }
+    .note { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .section { margin-top: 24px; border: 1px solid var(--line); border-radius: 16px; padding: 18px; background: var(--panel); }
+    .section h2 { margin: 0 0 12px; font-size: 22px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .shot {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0f1630;
+    }
+    .shot img { width: 100%; display: block; }
+    .tag { padding: 8px 10px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #000;
+    }
+    .features { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .feature { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #0f1733; }
+    .feature strong { color: #fff; }
+    .wechat-wrap { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .wechat-wrap img {
+      width: 180px;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .price { color: var(--ok); font-weight: 700; }
+    footer { margin: 22px 0 8px; color: var(--muted); font-size: 12px; text-align: center; }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg-particles"></canvas>
+  <div class="container">
+    <section class="hero">
+      <h1>过了么AI</h1>
+      <p class="subtitle">面向各类岗位的实时面试辅助工具</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/ZechangXue/-AI/releases/download/v1.1.0/AI.Setup.1.1.0.exe">下载 Windows 安装包 (v1.1.0)</a>
+        <a class="btn secondary" href="#demo">查看 Demo 视频</a>
+        <a class="btn secondary" href="#guide">使用说明</a>
+      </div>
+      <div class="note">如链接暂时不可用，请到页面底部联系微信获取最新下载地址。</div>
+    </section>
+
+    <section class="section" id="guide">
+      <h2>使用说明</h2>
+      <div class="features">
+        <div class="feature">
+          <strong>面试前配置（推荐）</strong><br/>
+          1. 先自行申请 API Key（推荐 OpenAI，效果最好）。<br/>
+          2. 在 Settings 中填入 API Key，模型保持默认 <strong>gpt-4.1-mini</strong> 即可。<br/>
+          3. 回答风格推荐 <strong>极简提醒（Concise）</strong>，卡壳时可随时切到 <strong>可读答案</strong>。<br/>
+          4. 输出模式保持默认：<strong>流式渲染 + ASR 模式</strong>，体验最佳。
+        </div>
+        <div class="feature">
+          <strong>音频与设备设置</strong><br/>
+          1. 音频来源推荐选 <strong>System Audio (System Default)</strong>，优先监听面试官声音，不受你自己说话影响。<br/>
+          2. 自我测试时可切换到 <strong>Microphone</strong>。<br/>
+          3. 建议在正式面试前完成一次设备调试，确保输入源和音量正常。
+        </div>
+        <div class="feature">
+          <strong>实际使用流程</strong><br/>
+          1. 上传资料（JD / 简历 / 笔记）后，点击 <strong>根据资料自动优化</strong>。<br/>
+          2. 完成后点击 <strong>开始监听</strong>。<br/>
+          3. 面试中先读一句回答，再按关键词展开；卡壳时切换 <strong>可读答案模式</strong> 继续讲。
+        </div>
+        <div class="feature">
+          <strong>下一题自动关旧卡（可选）</strong><br/>
+          在 <strong>设置</strong> 中可勾选 <strong>下一题自动关闭当前卡片并继续监听</strong>。开启后，识别到面试官的<strong>新一轮完整提问</strong>时，会自动收起当前提词卡并继续监听、应对新问题；仍可用 <code>Space</code> 手动关闭当前卡。关闭该选项则须先手动关上一张卡后再听下一题。
+        </div>
+        <div class="feature">
+          <strong>一键导出与复盘总结</strong><br/>
+          面试结束后点击 <strong>一键导出</strong>，可将<strong>本次面试中已记录的问题与回答</strong>导出为 PDF 便于复盘，并包含模型生成的<strong>中文面试总结</strong>。
+        </div>
+        <div class="feature">
+          <strong>窗口与成本建议</strong><br/>
+          1. 窗口透明度建议 <strong>60% - 90%</strong>，方便与面试官保持眼神交流。<br/>
+          2. 一场约 30 分钟面试，API 消耗通常约 <strong>0.3 美元</strong>（随模型与问答密度波动）。<br/>
+          3. 建议回答节奏：先结论、再方法、最后结果，表达更自然。
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>核心功能</h2>
+      <div class="features">
+        <div class="feature"><strong>实时提词卡</strong><br/>监听面试问题后快速给出一句可朗读回答与关键词。</div>
+        <div class="feature"><strong>可读答案模式</strong><br/>支持从一句回答无缝展开为 3-4 句自然表达。</div>
+        <div class="feature"><strong>JD / 简历 / 笔记上下文融合</strong><br/>基于岗位要求和你的经历生成更贴合的回答思路。</div>
+        <div class="feature"><strong>历史记忆与追问应对</strong><br/>可结合近期问答历史，对面试官追问进行自然衔接回答。</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>产品截图</h2>
+      <div class="grid">
+        <div class="shot">
+          <img src="./assets/1.jpg" alt="截图1：提词卡界面" />
+          <div class="tag">提词卡界面</div>
+        </div>
+        <div class="shot">
+          <img src="./assets/2.jpg" alt="截图2：资料库界面" />
+          <div class="tag">资料库 / Context 配置</div>
+        </div>
+        <div class="shot">
+          <img src="./assets/3.jpg" alt="截图3：设置界面" />
+          <div class="tag">设置与回答风格</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="demo">
+      <h2>Demo 视频</h2>
+      <video controls preload="metadata" poster="./assets/1.jpg">
+        <source src="./assets/demo.mp4" type="video/mp4" />
+        你的浏览器不支持视频播放，请直接下载视频查看。
+      </video>
+    </section>
+
+    <footer>© 过了么AI</footer>
+  </div>
+  <script>
+    (function () {
+      const canvas = document.getElementById('bg-particles');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const particles = [];
+      const maxParticles = 95;
+      const linkDist = 120;
+
+      function resize() {
+        canvas.width = Math.floor(window.innerWidth * DPR);
+        canvas.height = Math.floor(window.innerHeight * DPR);
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+
+      function rand(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function init() {
+        particles.length = 0;
+        const area = window.innerWidth * window.innerHeight;
+        const n = Math.max(40, Math.min(maxParticles, Math.floor(area / 18000)));
+        for (let i = 0; i < n; i++) {
+          particles.push({
+            x: rand(0, window.innerWidth),
+            y: rand(0, window.innerHeight),
+            vx: rand(-0.35, 0.35),
+            vy: rand(-0.35, 0.35),
+            r: rand(1, 2.4)
+          });
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 0 || p.x > window.innerWidth) p.vx *= -1;
+          if (p.y < 0 || p.y > window.innerHeight) p.vy *= -1;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(130, 180, 255, 0.85)';
+          ctx.fill();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const a = particles[i];
+            const b = particles[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < linkDist) {
+              const alpha = (1 - dist / linkDist) * 0.35;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.strokeStyle = 'rgba(115, 162, 255, ' + alpha.toFixed(3) + ')';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      resize();
+      init();
+      draw();
+      window.addEventListener('resize', function () {
+        resize();
+        init();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -33,3 +33,7 @@ Thumbs.db
 
 # Demo library copy
 demoAnswerLibrary copy.json
+
+# Cloudflare Wrangler local dev state
+cloudflare-worker/.wrangler/
+.wrangler/

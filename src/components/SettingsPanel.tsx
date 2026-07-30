@@ -15,13 +15,16 @@ interface Props {
   onResponseStyleChanged?: (style: ResponseStyle) => void;
   /** 与设置项「下一题自动关旧卡」同步到主界面（无需重开应用） */
   onAutoDismissCardOnNewQuestionChange?: (enabled: boolean) => void;
+  /** 翻译总结模式开关变更时同步到主界面 */
+  onTranslateModeChanged?: (enabled: boolean) => void;
 }
 
 const SettingsPanel: React.FC<Props> = ({
   onClose,
   onApiKeyChanged,
   onResponseStyleChanged,
-  onAutoDismissCardOnNewQuestionChange
+  onAutoDismissCardOnNewQuestionChange,
+  onTranslateModeChanged
 }) => {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -66,6 +69,9 @@ const SettingsPanel: React.FC<Props> = ({
     }
     if (partial.autoDismissCardOnNewQuestion !== undefined) {
       onAutoDismissCardOnNewQuestionChange?.(partial.autoDismissCardOnNewQuestion);
+    }
+    if ((partial as any).translateMode !== undefined) {
+      onTranslateModeChanged?.(!!(partial as any).translateMode);
     }
   };
 
@@ -156,6 +162,45 @@ const SettingsPanel: React.FC<Props> = ({
               </button>
             ))}
           </div>
+        </section>
+
+        <section>
+          <div style={{ marginBottom: 6, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>翻译总结模式</span>
+            {settings.translateMode && (
+              <span style={{ fontSize: 11, color: 'rgba(110, 231, 183, 0.8)', fontWeight: 400 }}>
+                与面试/组会模式互斥
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([false, true] as const).map(val => (
+              <button
+                key={String(val)}
+                className="btn"
+                style={{
+                  flex: 1,
+                  background: (settings.translateMode ?? false) === val
+                    ? val
+                      ? 'rgba(16, 185, 129, 0.3)'
+                      : 'rgba(99,102,241,0.85)'
+                    : 'rgba(255,255,255,0.08)',
+                  border: (settings.translateMode ?? false) === val && val
+                    ? '1px solid rgba(16, 185, 129, 0.5)'
+                    : 'none',
+                  fontWeight: (settings.translateMode ?? false) === val ? 700 : 400
+                }}
+                onClick={() => update({ translateMode: val } as any)}
+              >
+                {val ? '开启翻译总结' : '关闭'}
+              </button>
+            ))}
+          </div>
+          {settings.translateMode && (
+            <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(148,163,184,0.7)', lineHeight: 1.5 }}>
+              监听对方说的话，点击「翻译总结」将当前段落翻译成中文并提炼要点。
+            </div>
+          )}
         </section>
 
         <section>

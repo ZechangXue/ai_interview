@@ -108,6 +108,15 @@ export class AudioListener extends EventEmitter {
     this.micVoiceLatch = false;
   }
 
+  flushSegment(): Buffer | null {
+    if (this.currentBuffers.length === 0) return null;
+    const segment = Buffer.concat(this.currentBuffers);
+    this.currentBuffers = [];
+    this.lastVoiceTime = Date.now();
+    this.emit('segment', segment);
+    return segment;
+  }
+
   private handleChunk(chunk: Buffer) {
     if (!this.listening) return;
 

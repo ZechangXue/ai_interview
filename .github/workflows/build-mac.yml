@@ -1,0 +1,66 @@
+name: 打包 Mac 版本 (DMG)
+
+# ── 触发条件 ──────────────────────────────────────────────────────────────────
+on:
+  # 方式一：在 GitHub 网页手动点击"Run workflow"按钮触发
+  workflow_dispatch:
+
+  # 方式二：推送版本标签时自动触发（如 git tag v1.2.0 && git push --tags）
+  push:
+    tags:
+      - 'v*'
+
+# ── 打包任务 ──────────────────────────────────────────────────────────────────
+jobs:
+  build-mac:
+    strategy:
+      matrix:
+        include:
+          # Apple Silicon（M1/M2/M3/M4，现在大多数新 Mac）
+          - os: macos-latest
+            arch: arm64
+          # Intel Mac（老款 Mac）
+          - os: macos-13
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+    name: DMG (${{ matrix.arch }})
+
+    steps:
+      # 1. 拉取代码
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      # 2. 安装 Node.js
+      - name: 安装 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 3. 安装依赖（wasapi-loopback 的 package.json 有 "os":["win32"]，在 Mac 上会自动跳过）
+      - name: 安装依赖
+        run: npm install
+
+      # 4. 重新编译 Mac 原生模块（naudiodon 音频 + keytar 密钥存储）
+      - name: 重编译原生模块
+        run: npx electron-rebuild -f -w naudiodon,keytar
+
+      # 5. 编译 TypeScript + 打包前端
+      - name: 编译代码
+        run: npm run build
+
+      # 6. 用 electron-builder 打包成 DMG
+      - name: 打包 DMG
+        run: npx electron-builder --mac --${{ matrix.arch }} --config electron-builder.mac.yml
+        env:
+          # 允许 electron-builder 访问 GitHub Release（上传时用）
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 7. 上传 DMG 文件到 Actions 产物（网页可直接下载）
+      - name: 上传 DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: 过了么AI-mac-${{ matrix.arch }}
+          path: release-mac/*.dmg
+          retention-days: 30   # 保留 30 天

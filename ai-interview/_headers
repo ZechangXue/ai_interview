@@ -1,0 +1,14 @@
+# Cloudflare Pages：避免首页被长期缓存，发版后用户能较快看到新内容
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=86400

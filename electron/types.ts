@@ -115,6 +115,8 @@ export interface Settings {
   meetingMode?: boolean;
   /** 答案语言：'en' 英文（默认）/ 'zh' 中文 */
   answerLanguage?: 'en' | 'zh';
+  /** 翻译总结模式：监听音频并翻译总结成中文，与面试/组会模式互斥 */
+  translateMode?: boolean;
 }
 
 // 流式 LLM 更新事件（兼容两种模式的所有字段）

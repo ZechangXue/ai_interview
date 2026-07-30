@@ -47,7 +47,8 @@ const DEFAULT_SETTINGS: Settings = {
   /** 默认开启：下一题自动关旧卡并继续听 */
   autoDismissCardOnNewQuestion: true,
   meetingMode: false,
-  answerLanguage: 'en' as const
+  answerLanguage: 'en' as const,
+  translateMode: false
 };
 
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');

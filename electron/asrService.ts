@@ -39,7 +39,8 @@ function pcm16ToWav(pcm: Buffer, sampleRate: number, channels: number): Buffer {
 export async function transcribeSegment(
   audioBuffer: Buffer,
   apiKey: string,
-  mock: boolean
+  mock: boolean,
+  sampleRate?: number
 ): Promise<string> {
   if (mock) {
     // Mock：用于开发调试
@@ -51,7 +52,7 @@ export async function transcribeSegment(
   const tmpDir = path.join(process.cwd(), '.tmp');
   fs.mkdirSync(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `segment-${Date.now()}.wav`);
-  const wavBuffer = pcm16ToWav(audioBuffer, SAMPLE_RATE, CHANNELS);
+  const wavBuffer = pcm16ToWav(audioBuffer, sampleRate ?? SAMPLE_RATE, CHANNELS);
   fs.writeFileSync(tmpPath, wavBuffer);
 
   try {

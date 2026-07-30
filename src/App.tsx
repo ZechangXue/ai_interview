@@ -5,6 +5,7 @@ import AssistCard from './components/AssistCard';
 import ContextPanel from './components/ContextPanel';
 import SettingsPanel from './components/SettingsPanel';
 import MacSetupWizard from './components/MacSetupWizard';
+import TranslatePanel, { type TranslateEntry } from './components/TranslatePanel';
 import {
   isNoiseOrUnrecognizedQuestionZh,
   type AssistEventPayload,
@@ -39,6 +40,13 @@ const App: React.FC = () => {
   const [meetingMode, setMeetingMode] = useState(false);
   const [showMacSetup, setShowMacSetup] = useState(false);
 
+  // 翻译总结模式
+  const [translateMode, setTranslateMode] = useState(false);
+  const [translateListening, setTranslateListening] = useState(false);
+  const [translateSummarizing, setTranslateSummarizing] = useState(false);
+  const [translateEntries, setTranslateEntries] = useState<TranslateEntry[]>([]);
+  const translateStreamingIdRef = useRef<number | null>(null);
+
   // 流式卡片状态
   const [streamCard, setStreamCard] = useState<Partial<AssistJSON & ReadableAssistJSON> | null>(null);
   const [streaming, setStreaming] = useState(false);
@@ -67,6 +75,7 @@ const App: React.FC = () => {
         setResponseStyle((settings.responseStyle as ResponseStyle) ?? 'concise');
         setAutoDismissCardOnNewQuestion(settings.autoDismissCardOnNewQuestion !== false);
         setMeetingMode(!!(settings as any).meetingMode);
+        setTranslateMode(!!(settings as any).translateMode);
         // 不自动开始监听，由用户每次打开后手动点击「开始监听」
 
         // Mac 平台：若首次使用则弹出音频引导（同步读取 process.platform，无 IPC 开销）
@@ -233,6 +242,76 @@ const App: React.FC = () => {
   }, []);
 
   // 面试/组会模式均已一次性生成 expanded_answer_en，不再需要二次预取
+
+  // 翻译总结模式：接收流式翻译 chunk
+  useEffect(() => {
+    const unsubscribe = (window.teleprompter as any).onTranslateChunk((data: { text: string; done: boolean }) => {
+      const { text, done } = data;
+      setTranslateEntries(prev => {
+        const streamId = translateStreamingIdRef.current;
+        if (streamId !== null) {
+          return prev.map(e =>
+            e.id === streamId
+              ? { ...e, text: e.text + text, streaming: !done }
+              : e
+          );
+        }
+        return prev;
+      });
+      if (done) {
+        translateStreamingIdRef.current = null;
+        setTranslateSummarizing(false);
+      }
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
+
+  const handleTranslateToggleListening = async () => {
+    if (translateListening) {
+      try {
+        await (window.teleprompter as any).translateStop();
+      } finally {
+        setTranslateListening(false);
+      }
+    } else {
+      try {
+        await (window.teleprompter as any).translateStart();
+        setTranslateListening(true);
+      } catch (e) {
+        console.error('translateStart error', e);
+        setTranslateListening(false);
+      }
+    }
+  };
+
+  const handleTranslateSummarize = async () => {
+    if (translateSummarizing) return;
+    setTranslateSummarizing(true);
+
+    // 创建新条目（先占位，流式内容追加进去）
+    const id = Date.now();
+    const now = new Date();
+    const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    translateStreamingIdRef.current = id;
+    setTranslateEntries(prev => [{ id, text: '', timestamp, streaming: true }, ...prev]);
+
+    try {
+      await (window.teleprompter as any).translateSummarize();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setTranslateEntries(prev =>
+        prev.map(entry =>
+          entry.id === id
+            ? { ...entry, text: `（翻译失败：${message}）`, streaming: false }
+            : entry
+        )
+      );
+      translateStreamingIdRef.current = null;
+      setTranslateSummarizing(false);
+    }
+  };
 
   const currentCard = useMemo(() => queue[0]?.payload.assist ?? null, [queue]);
   const hasCard = currentCard !== null || streamCard !== null;
@@ -413,7 +492,15 @@ const App: React.FC = () => {
         onCloseWindow={() => window.teleprompter.quitApp()}
         queueSize={queue.length}
       >
-        {streamCard ? (
+        {translateMode ? (
+          <TranslatePanel
+            listening={translateListening}
+            summarizing={translateSummarizing}
+            entries={translateEntries}
+            onToggleListening={handleTranslateToggleListening}
+            onSummarize={handleTranslateSummarize}
+          />
+        ) : streamCard ? (
           <AssistCard
             assist={streamCard}
             responseStyle={responseStyle}
@@ -461,6 +548,7 @@ const App: React.FC = () => {
             onApiKeyChanged={onApiKeyChanged}
             onResponseStyleChanged={setResponseStyle}
             onAutoDismissCardOnNewQuestionChange={setAutoDismissCardOnNewQuestion}
+            onTranslateModeChanged={setTranslateMode}
           />
         )}
 

@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, nativeTheme, screen, dialog, Tray, Menu, g
 import path from 'node:path';
 import fs from 'node:fs';
 import portAudio from 'naudiodon';
+
 import { AudioListener } from './audioCapture';
 import { RealtimeTranscriber } from './realtimeTranscriber';
 import { RealtimeAllInOne } from './realtimeAllInOne';
@@ -202,6 +203,10 @@ let audioListener: AudioListener | null = null;
 let realtimeTranscriber: RealtimeTranscriber | null = null;
 let realtimeAllInOne: RealtimeAllInOne | null = null;
 let screenshotSelectionWindow: BrowserWindow | null = null;
+
+// ── 翻译总结模式 ──────────────────────────────────────────────────────────
+let translateAudioListener: AudioListener | null = null;
+let translateAudioBuffer: Buffer[] = [];  // 每个元素是一个 VAD 分段
 
 /** Realtime 一体：若 response.done 时还没有 input_audio_transcription，则先挂起，等转写回调再写入一键导出 */
 type PendingRealtimeSessionExport = {
@@ -416,6 +421,7 @@ function scheduleRealtimeAllInOneRestartAfterTurn() {
     const latest = getSettings();
     const provider = latest.apiProvider ?? 'openai';
     if (!latest.listening) return;
+    if (latest.translateMode) return; // 翻译总结模式下禁止自动重启
     if (!latest.useRealtimeAllInOne || provider !== 'openai') return;
     if (realtimeAllInOne) return;
     startAllInOneListener().catch((err) => {
@@ -1386,6 +1392,27 @@ function registerIpcHandlers() {
     const before = getSettings();
     const updated = updateSettings(partial);
 
+    // translateMode 切换时：与面试/组会模式互斥，开启时停掉所有面试监听；关闭时清空录音缓冲
+    if ('translateMode' in partial && partial.translateMode !== before.translateMode) {
+      if (partial.translateMode) {
+        // 进入翻译模式：停止所有面试相关监听，并强制 listening=false
+        // 防止 allInOnePostTurnCleanup 里的 setTimeout 再次自动重启 AllInOne
+        realtimeAllInOne?.stop();
+        realtimeAllInOne = null;
+        realtimeTranscriber?.stop();
+        realtimeTranscriber = null;
+        audioListener?.stop();
+        audioListener = null;
+        updateSettings({ listening: false });
+        mainWindow?.webContents.send('listener:status', { listening: false });
+      } else {
+        // 退出翻译模式：停止录音并清空缓冲区
+        translateAudioListener?.stop();
+        translateAudioListener = null;
+        translateAudioBuffer = [];
+      }
+    }
+
     // meetingMode 切换时：重建 AllInOne，让新 session 带上/去掉文档 instructions
     if ('meetingMode' in partial && partial.meetingMode !== before.meetingMode) {
       if (updated.useRealtimeAllInOne && updated.listening) {
@@ -1623,6 +1650,134 @@ function registerIpcHandlers() {
     clearDocsByType('meeting_doc');
     clearChunkEmbeddingsByDocType('meeting_doc');
     mainWindow?.webContents.send('context:updated');
+    return { ok: true };
+  });
+
+  // ── 翻译总结模式 ────────────────────────────────────────────────────────
+  // 完全复用 AudioListener（与面试/组会模式相同的音频捕获路径），
+  // 区别仅在于把每个 VAD 分段积累到 translateAudioBuffer，
+  // 用户点「翻译总结」时再拼合送 Whisper + LLM。
+
+  function getTranslateListener(): AudioListener {
+    if (!translateAudioListener) {
+      const s = getSettings();
+      translateAudioListener = new AudioListener({
+        sampleRate: 16000,
+        silenceMs: 1000,
+        silenceThreshold: 0.01,
+        deviceId: resolveAudioDeviceId(s.audioDeviceId ?? -1)
+      });
+      // 每个静音切段都追加到缓冲区
+      translateAudioListener.on('segment', (seg: Buffer) => {
+        translateAudioBuffer.push(seg);
+        console.log(`[Translate] 收到语音段 ${seg.length} bytes，总段数 ${translateAudioBuffer.length}`);
+      });
+      attachLevelForwarder(translateAudioListener);
+    }
+    return translateAudioListener;
+  }
+
+  function flushTranslateAudioSegment() {
+    translateAudioListener?.flushSegment();
+  }
+
+  ipcMain.handle('translate:start', () => {
+    // 确保 AllInOne / 其他面试监听已停止，且 listening=false（防止自动重启）
+    realtimeAllInOne?.stop();
+    realtimeAllInOne = null;
+    realtimeTranscriber?.stop();
+    realtimeTranscriber = null;
+    audioListener?.stop();
+    audioListener = null;
+    updateSettings({ listening: false });
+
+    const listener = getTranslateListener();
+    listener.start();
+    console.log('[Translate] 开始监听');
+    return { ok: true };
+  });
+
+  ipcMain.handle('translate:stop', () => {
+    flushTranslateAudioSegment();
+    translateAudioListener?.stop();
+    console.log('[Translate] 暂停监听，已积累段数:', translateAudioBuffer.length);
+    return { ok: true };
+  });
+
+  ipcMain.handle('translate:summarize', async () => {
+    // 把当前正在录但尚未自然静音切段的内容并入本次总结；不停止监听。
+    // 如果监听仍开启，后续音频会继续进入 translateAudioBuffer，供下一次点击总结。
+    flushTranslateAudioSegment();
+
+    if (translateAudioBuffer.length === 0) {
+      mainWindow?.webContents.send('translate:chunk', { text: '（未检测到有效语音）', done: true });
+      return { ok: true };
+    }
+
+    // 取出并清空缓冲区（下一段重新积累）
+    const segments = translateAudioBuffer.splice(0);
+    const pcm = Buffer.concat(segments);
+    console.log(`[Translate] 拼合 ${segments.length} 段，总 PCM 字节 ${pcm.length}`);
+
+    const settings = getSettings();
+    const openaiKey = await getApiKey('openai');
+    if (!openaiKey && !settings.mockAsr) {
+      mainWindow?.webContents.send('translate:chunk', { text: '（未配置 OpenAI API Key，无法转写音频）', done: true });
+      return { ok: false };
+    }
+
+    const provider = settings.apiProvider ?? 'openai';
+    const apiKey = await getApiKey(provider);
+    if (!apiKey) {
+      mainWindow?.webContents.send('translate:chunk', { text: '（未配置 API Key，无法翻译）', done: true });
+      return { ok: false };
+    }
+
+    try {
+      // 1. 转写（16 kHz mono 16-bit PCM → WAV → Whisper，与面试模式完全一致）
+      const transcript = await transcribeSegment(pcm, openaiKey ?? '', settings.mockAsr);
+      console.log('[Translate] 转写结果:', transcript?.slice(0, 120));
+
+      if (!transcript || transcript.trim().length < 5) {
+        mainWindow?.webContents.send('translate:chunk', { text: '（未检测到有效语音）', done: true });
+        return { ok: true };
+      }
+
+      // 2. 翻译总结（流式）
+      const OpenAI = (await import('openai')).default;
+      const baseURL = getOpenAICompatibleBaseUrl(provider) ?? undefined;
+      const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+
+      const stream = await client.chat.completions.create({
+        model: settings.model,
+        temperature: 0.3,
+        stream: true,
+        messages: [
+          {
+            role: 'system',
+            content: '把用户给出的语音转写内容总结成 1 到 2 句自然中文。只输出总结正文，不要标题、不要要点、不要原文、不要逐句翻译。自动合并 ASR 重复词和口头禅，保留必要的专有名词和缩写。'
+          },
+          { role: 'user', content: transcript }
+        ]
+      });
+
+      let sentDone = false;
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content ?? '';
+        const done = chunk.choices[0]?.finish_reason != null;
+        if (text || done) {
+          mainWindow?.webContents.send('translate:chunk', { text, done });
+          if (done) sentDone = true;
+        }
+      }
+      if (!sentDone) {
+        mainWindow?.webContents.send('translate:chunk', { text: '', done: true });
+      }
+    } catch (e) {
+      console.error('[Translate] 翻译总结失败:', e);
+      mainWindow?.webContents.send('translate:chunk', { text: `（翻译失败：${(e as Error).message}）`, done: true });
+    }
+
     return { ok: true };
   });
 
@@ -1907,6 +2062,10 @@ function registerIpcHandlers() {
   // Listener
   ipcMain.handle('listener:start', async () => {
     const settings = getSettings();
+    // 翻译总结模式下，顶栏「开始监听」不启动面试/组会监听
+    if (settings.translateMode) {
+      return { listening: false } satisfies ListenerStatus;
+    }
     const provider = settings.apiProvider ?? 'openai';
     // Realtime 仅 OpenAI 支持；其它服务商走段式 Whisper + 当前 LLM
     if (settings.useRealtimeAllInOne && provider === 'openai') {
@@ -1954,6 +2113,10 @@ function registerIpcHandlers() {
       const s = updateSettings({ listening: false });
       return { listening: s.listening } satisfies ListenerStatus;
     } else {
+      // 翻译总结模式下，Ctrl+S 快捷键也不启动面试/组会监听
+      if (settings.translateMode) {
+        return { listening: false } satisfies ListenerStatus;
+      }
       const provider = settings.apiProvider ?? 'openai';
       if (settings.useRealtimeAllInOne && provider === 'openai') {
         await startAllInOneListener();

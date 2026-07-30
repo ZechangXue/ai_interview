@@ -68,6 +68,16 @@ contextBridge.exposeInMainWorld('teleprompter', {
   analyzeMeetingDocuments: () => ipcRenderer.invoke('meeting:analyzeDocuments'),
   clearMeetingDocuments: () => ipcRenderer.invoke('meeting:clearDocuments'),
 
+  // 翻译总结模式
+  translateStart: () => ipcRenderer.invoke('translate:start'),
+  translateStop: () => ipcRenderer.invoke('translate:stop'),
+  translateSummarize: () => ipcRenderer.invoke('translate:summarize'),
+  onTranslateChunk: (callback) => {
+    const handler = (_e, data) => callback(data);
+    ipcRenderer.on('translate:chunk', handler);
+    return () => ipcRenderer.removeListener('translate:chunk', handler);
+  },
+
   // ── Mac 音频引导（仅 darwin 平台有效，Windows 调用会静默失败） ──────────
   macCheckBlackHole: () => ipcRenderer.invoke('mac:checkBlackHole'),
   macCheckMultiOutput: () => ipcRenderer.invoke('mac:checkMultiOutput'),
